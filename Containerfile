@@ -4,14 +4,7 @@ ARG BASE_IMAGE=quay.io/fedora/fedora-silverblue:45
 FROM ${BASE_IMAGE}
 
 # Google Chrome repository
-RUN cat > /etc/yum.repos.d/google-chrome.repo <<'EOF'
-[google-chrome]
-name=google-chrome
-baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64
-enabled=1
-gpgcheck=1
-gpgkey=https://dl.google.com/linux/linux_signing_key.pub
-EOF
+COPY files/google-chrome.repo /etc/yum.repos.d/google-chrome.repo
 
 # Chrome installs into /opt, which on image-based systems lives under /var
 # and is not part of the image. Install it, then relocate it into /usr and
