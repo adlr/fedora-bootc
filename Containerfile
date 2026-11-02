@@ -23,6 +23,10 @@ RUN set -eux; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 
+# System-wide dconf defaults (users can still override them)
+COPY files/dconf/ /etc/dconf/db/local.d/
+RUN dconf update
+
 # Enable SSH by default
 RUN systemctl enable sshd.service
 

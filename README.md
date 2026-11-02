@@ -84,6 +84,21 @@ sudo systemctl disable --now bootc-fetch-apply-updates.timer
 sudo bootc upgrade && sudo systemctl reboot
 ```
 
+## Desktop defaults (dconf)
+
+Files in `files/dconf/` are installed to `/etc/dconf/db/local.d/` as system-wide
+defaults; users' own settings still take precedence. To refresh the Ptyxis defaults
+from your current setup:
+
+```sh
+dconf dump /org/gnome/Ptyxis/ \
+  | sed -e 's|^\[/\]$|[org/gnome/Ptyxis]|;t' -e 's|^\[\(.*\)\]$|[org/gnome/Ptyxis/\1]|' \
+  > files/dconf/50-ptyxis
+```
+
+The same works for other apps: dump their path and rewrite the section headers to
+absolute paths (without the leading `/`) in a new `files/dconf/` keyfile.
+
 ## Notes
 
 - Chrome lives in `/usr/lib/google`, with `/opt/google` symlinked to it at boot through

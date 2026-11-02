@@ -1,0 +1,13 @@
+[org/gnome/Ptyxis]
+audible-bell=false
+cursor-blink-mode='off'
+default-profile-uuid='ef301282614ca0910ab84fda693b8738'
+font-name='JetBrains Mono 11'
+interface-style='system'
+profile-uuids=['ef301282614ca0910ab84fda693b8738']
+text-blink-mode='focused'
+use-system-font=false
+window-size=(uint32 162, uint32 43)
+
+[org/gnome/Ptyxis/Profiles/ef301282614ca0910ab84fda693b8738]
+opacity=1.0
