@@ -76,13 +76,17 @@ Use `--type qcow2` or `--type raw` instead of `anaconda-iso` for a VM disk image
 
 ## Updates
 
-Installed machines pick up the daily builds through `bootc-fetch-apply-updates.timer`,
-which by default applies the update and reboots. To update manually instead:
+Updates are manual. The image is rebuilt daily, but installed machines don't fetch or
+apply it on their own (`bootc-fetch-apply-updates.timer` is disabled in the
+Silverblue base). To update:
 
 ```sh
-sudo systemctl disable --now bootc-fetch-apply-updates.timer
-sudo bootc upgrade && sudo systemctl reboot
+sudo bootc upgrade        # download the latest image; applied on next boot
+sudo systemctl reboot
 ```
+
+`bootc status` shows the booted image and any staged update. To go back to the
+previous image, run `sudo bootc rollback` and reboot.
 
 ## Desktop defaults (dconf)
 
