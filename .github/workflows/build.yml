@@ -8,6 +8,8 @@ on:
     paths:
       - Containerfile
       - files/**
+      - patches/**
+      - scripts/**
       - .github/workflows/build.yml
   pull_request:
   workflow_dispatch:
@@ -15,9 +17,30 @@ on:
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/fedora-bootc
   FEDORA_VERSION: "45"
+  BASE_IMAGE: quay.io/fedora/fedora-silverblue:45
 
 jobs:
+  patched-packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runs inside the base image so it sees the exact package versions it
+      # ships. Fails (and stops the image build) if a COPR build fails.
+      - name: Build patched packages in COPR
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          args=()
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            args+=(-n)
+          fi
+          podman run --rm --pull=newer -v "$PWD:/src:z" -e COPR_CONFIG \
+            "$BASE_IMAGE" /src/scripts/build-patched.sh "${args[@]}"
+
   build:
+    needs: patched-packages
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -44,6 +67,7 @@ jobs:
           tag_args=()
           for t in ${{ steps.meta.outputs.tags }}; do tag_args+=(--tag "$t"); done
           podman build --pull=newer \
+            --build-arg BASE_IMAGE="$BASE_IMAGE" \
             --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
             --label containers.bootc=1 \
             "${tag_args[@]}" -f Containerfile .

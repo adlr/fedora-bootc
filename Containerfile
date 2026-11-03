@@ -35,6 +35,26 @@ RUN set -eux; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 
+# Patched packages from COPR (built by scripts/build-patched.sh). Upgrade only
+# installed packages that the COPR provides, taking new versions from it alone,
+# then make sure everything in patches/ ended up patched.
+COPY files/gnome-patched.repo /etc/yum.repos.d/gnome-patched.repo
+COPY patches/ /tmp/patches/
+RUN set -eux; \
+    dnf -q repoquery --refresh --repo=gnome-patched --arch=noarch,x86_64 \
+        --qf '%{name}\n' | sort -u > /tmp/copr-pkgs; \
+    pkgs="$(rpm -qa --qf '%{name}\n' | sort -u | grep -Fxf /tmp/copr-pkgs)"; \
+    dnf upgrade -y --from-repo=gnome-patched $pkgs; \
+    for f in /tmp/patches/*.patch; do \
+        pkg="$(basename "${f%-*}")"; \
+        rpm -qa --qf '%{SOURCERPM}\n' | grep -E "^$pkg-[^-]+-[^-]+\.src\.rpm$" \
+            | grep -q '\.patched\.src\.rpm$' \
+            || { echo "$pkg is not a .patched build" >&2; exit 1; }; \
+    done; \
+    rm -rf /tmp/patches /tmp/copr-pkgs; \
+    dnf clean all; \
+    rm -rf /var/cache/* /var/log/* /var/lib/dnf
+
 # System-wide dconf defaults (users can still override them)
 COPY files/dconf/ /etc/dconf/db/local.d/
 RUN dconf update

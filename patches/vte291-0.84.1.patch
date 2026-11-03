@@ -1,0 +1,13 @@
+diff --git a/src/vte.cc b/src/vte.cc
+index 19763615..a8578697 100644
+--- a/src/vte.cc
++++ b/src/vte.cc
+@@ -6545,7 +6545,7 @@ Terminal::maybe_end_selection()
+ 		/* Copy only if something was selected. */
+                 if (!m_selection_resolved.empty() &&
+ 		    m_selecting_had_delta) {
+-                        widget_copy(vte::platform::ClipboardType::PRIMARY,
++                        widget_copy(vte::platform::ClipboardType::CLIPBOARD,
+                                     vte::platform::ClipboardFormat::TEXT);
+ 			emit_selection_changed();
+ 		}

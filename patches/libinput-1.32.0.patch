@@ -1,0 +1,238 @@
+From cd1f769f6cde282a838bec0f9c1705390e3405ce Mon Sep 17 00:00:00 2001
+From: Andrew de los Reyes <adlr@chromium.org>
+Date: Sun, 25 Jul 2021 11:42:58 -0700
+Subject: [PATCH 1/3] adlr: chromium os accel curve
+
+---
+ src/filter-touchpad.c | 52 ++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 44 insertions(+), 8 deletions(-)
+
+diff --git a/src/filter-touchpad.c b/src/filter-touchpad.c
+index 61a4d108..96cd8498 100644
+--- a/src/filter-touchpad.c
++++ b/src/filter-touchpad.c
+@@ -56,6 +56,8 @@ struct touchpad_accelerator {
+ 	int dpi;
+ 
+ 	double speed_factor; /* factor based on speed setting */
++	/* chrome os items */
++	usec_t prev_time;
+ };
+ 
+ /**
+@@ -98,15 +100,46 @@ accelerator_filter_touchpad(struct motion_filter *filter,
+ {
+ 	struct touchpad_accelerator *accel = (struct touchpad_accelerator *)filter;
+ 
++	/* start chromiums os version */
++	/* first, convert intput to mm/s */
++	struct normalized_coords kdpi = normalize_for_dpi(unaccelerated, accel->dpi);
++	double mm_x = kdpi.x * 25.4 / 1000;
++	double mm_y = kdpi.y * 25.4 / 1000;
++	double dt = us2ms_f(usec_sub(time, accel->prev_time)) / 1000.0;  // seconds
++	// Sanity check dt
++	/* printf("%zu - %zu / 1M = %f\n", time, accel->prev_time, dt); */
++	if (dt < 0.002 || dt > 0.02)
++		dt = 0.01;
++	accel->prev_time = time;
++	double velocity = sqrt((mm_x * mm_x + mm_y * mm_y) / (dt * dt));  // mm/s
++	// compute scale factor
++	double factor = 1.0;
++	if (velocity < 32) {
++		factor = 32.0 / 37.5;
++	} else if (velocity < 150) {
++		factor = velocity / 37.5;
++	} else {
++		factor = 300 / 37.5 + (150.0 * 150.0 - 300.0 * 150.0) / (37.5 * velocity);
++	}
++	double screen_dots_per_mm = 1.25 * 133.0 / 25.4;
++	struct normalized_coords cret;
++	cret.x = mm_x * factor * screen_dots_per_mm;
++	cret.y = mm_y * factor * screen_dots_per_mm;
++	/* printf("%f %f (dt %f) v %f f %f out %f %f\n", */
++	/*        mm_x, mm_y, dt, velocity, factor, cret.x, cret.y); */
++	return cret;
++	//double vx = mm_x
++	/* end chromium os version */
++
+ 	/* Accelerate for device units, normalize afterwards */
+-	double accel_factor =
+-		calculate_acceleration_factor(accel, unaccelerated, data, time);
+-	const struct device_float_coords accelerated = {
+-		.x = unaccelerated->x * accel_factor,
+-		.y = unaccelerated->y * accel_factor,
+-	};
+-
+-	return normalize_for_dpi(&accelerated, accel->dpi);
++	/* double accel_factor = */
++	/* 	calculate_acceleration_factor(accel, unaccelerated, data, time); */
++	/* const struct device_float_coords accelerated = { */
++	/* 	.x = unaccelerated->x * accel_factor, */
++	/* 	.y = unaccelerated->y * accel_factor, */
++	/* }; */
++
++	/* return normalize_for_dpi(&accelerated, accel->dpi); */
+ }
+ 
+ /* Maps the [-1, 1] speed setting into a constant acceleration
+@@ -126,6 +159,7 @@ speed_factor(double s)
+ static bool
+ touchpad_accelerator_set_speed(struct motion_filter *filter, double speed_adjustment)
+ {
++	printf("SET SPEED: %f\n", speed_adjustment);
+ 	struct touchpad_accelerator *accel_filter =
+ 		(struct touchpad_accelerator *)filter;
+ 
+@@ -321,5 +355,7 @@ create_pointer_accelerator_filter_touchpad(int dpi,
+ 		pointer_delta_smoothener_create(event_delta_smooth_threshold,
+ 						event_delta_smooth_value);
+ 
++	filter->prev_time = usec_from_seconds(0);
++
+ 	return &filter->base;
+ }
+-- 
+2.56.0
+
+
+From 1821f952b3c41c522543f032aedd70591641dd85 Mon Sep 17 00:00:00 2001
+From: Andrew de los Reyes <adlr@chromium.org>
+Date: Sun, 25 Jul 2021 17:41:19 -0700
+Subject: [PATCH 2/3] hack to be more aggressive about tap suspending
+
+---
+ src/evdev-mt-touchpad-gestures.c |  1 +
+ src/evdev-mt-touchpad.c          | 24 +++++++++++++++++++++---
+ src/evdev-mt-touchpad.h          |  5 +++++
+ 3 files changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/src/evdev-mt-touchpad-gestures.c b/src/evdev-mt-touchpad-gestures.c
+index ae42b513..8a4cf702 100644
+--- a/src/evdev-mt-touchpad-gestures.c
++++ b/src/evdev-mt-touchpad-gestures.c
+@@ -221,6 +221,7 @@ tp_gesture_post_pointer_motion(struct tp_dispatch *tp, usec_t time)
+ 		struct device_float_coords unaccel;
+ 
+ 		unaccel = tp_scale_to_xaxis(tp, raw);
++		tp_notify_motion(tp, delta, time);
+ 		pointer_notify_motion(&tp->device->base, time, &delta, &unaccel);
+ 	}
+ }
+diff --git a/src/evdev-mt-touchpad.c b/src/evdev-mt-touchpad.c
+index 81b803de..bee03a9b 100644
+--- a/src/evdev-mt-touchpad.c
++++ b/src/evdev-mt-touchpad.c
+@@ -464,7 +464,7 @@ tp_stop_actions(struct tp_dispatch *tp, usec_t time)
+ 	tp_edge_scroll_stop_events(tp, time);
+ 	tp_circular_scroll_stop_events(tp, time);
+ 	tp_gesture_cancel(tp, time);
+-	tp_tap_suspend(tp, time);
++	/* tp_tap_suspend(tp, time); */
+ }
+ 
+ struct device_coords
+@@ -1857,6 +1857,20 @@ tp_handle_state(struct tp_dispatch *tp, usec_t time)
+ 	tp_3fg_drag_apply_config(tp->device);
+ }
+ 
++void
++tp_notify_motion(struct tp_dispatch *tp, struct normalized_coords delta,
++		 usec_t time)
++{
++	if (tp->tap.suspended) {
++		tp->tap.delta_since_suspend.x += delta.x;
++		tp->tap.delta_since_suspend.y += delta.y;
++		if (fabs(tp->tap.delta_since_suspend.x) < 4 &&
++		    fabs(tp->tap.delta_since_suspend.y) < 5)
++			return;
++		tp_tap_resume(tp, time);
++	}
++}
++
+ _unused_ static inline void
+ tp_debug_touch_state(struct tp_dispatch *tp, struct evdev_device *device)
+ {
+@@ -2152,7 +2166,7 @@ tp_trackpoint_timeout(usec_t now, void *data)
+ 	struct tp_dispatch *tp = data;
+ 
+ 	if (tp->palm.trackpoint_active) {
+-		tp_tap_resume(tp, now);
++		/* tp_tap_resume(tp, now); */
+ 		tp->palm.trackpoint_active = false;
+ 	}
+ 	tp->palm.trackpoint_event_count = 0;
+@@ -2204,7 +2218,7 @@ tp_keyboard_timeout(usec_t now, void *data)
+ 		return;
+ 	}
+ 
+-	tp_tap_resume(tp, now);
++	/* tp_tap_resume(tp, now); */
+ 
+ 	tp->dwt.keyboard_active = false;
+ 
+@@ -2351,6 +2365,10 @@ tp_keyboard_event(usec_t time, struct libinput_event *event, void *data)
+ 			return;
+ 
+ 		tp_stop_actions(tp, time);
++		if (!tp->tap.suspended)
++			tp_tap_suspend(tp, time);
++		tp->tap.delta_since_suspend.x = 0;
++		tp->tap.delta_since_suspend.y = 0;
+ 		tp->dwt.keyboard_active = true;
+ 		timeout = DEFAULT_KEYBOARD_ACTIVITY_TIMEOUT_1;
+ 	} else {
+diff --git a/src/evdev-mt-touchpad.h b/src/evdev-mt-touchpad.h
+index 48375b7c..196f50ca 100644
+--- a/src/evdev-mt-touchpad.h
++++ b/src/evdev-mt-touchpad.h
+@@ -480,6 +480,7 @@ struct tp_dispatch {
+ 		struct {
+ 			int left, right, top, bottom;
+ 		} edges;
++		struct normalized_coords delta_since_suspend;
+ 	} tap;
+ 
+ 	struct {
+@@ -841,4 +842,8 @@ tp_thumb_get_touch(struct tp_dispatch *tp);
+ void
+ tp_3fg_drag_apply_config(struct evdev_device *device);
+ 
++void
++tp_notify_motion(struct tp_dispatch *tp, struct normalized_coords delta,
++		 usec_t time);
++
+ #endif
+-- 
+2.56.0
+
+
+From a30146b2c91c71f845f1d002a740bc4cf752fbac Mon Sep 17 00:00:00 2001
+From: Andrew de los Reyes <adlr@rivosinc.com>
+Date: Wed, 23 Oct 2024 08:58:32 -0700
+Subject: [PATCH 3/3] Add quirk for Logitech Touchpad T650
+
+---
+ quirks/30-vendor-logitech.quirks | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/quirks/30-vendor-logitech.quirks b/quirks/30-vendor-logitech.quirks
+index 15a327eb..e5b4aa4f 100644
+--- a/quirks/30-vendor-logitech.quirks
++++ b/quirks/30-vendor-logitech.quirks
+@@ -51,6 +51,13 @@ MatchVendor=0x046D
+ MatchProduct=0x4011
+ AttrPalmPressureThreshold=400
+ 
++[Logitech Rechargeable Touchpad T650]
++MatchBus=usb
++MatchVendor=0x046D
++MatchProduct=0x4101
++AttrPressureRange=-0:-2
++AttrPalmPressureThreshold=400
++
+ [Logitech MX Master (4041)]
+ MatchVendor=0x046D
+ MatchProduct=0x4041
+-- 
+2.56.0
+

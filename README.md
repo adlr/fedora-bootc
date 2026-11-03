@@ -90,6 +90,44 @@ sudo systemctl reboot
 `bootc status` shows the booted image and any staged update. To go back to the
 previous image, run `sudo bootc rollback` and reboot.
 
+## Patched packages (COPR)
+
+Packages with a patch in `patches/` are rebuilt with that patch in the
+[andrewdelosreyes/gnome-patched](https://copr.fedorainfracloud.org/coprs/andrewdelosreyes/gnome-patched/)
+COPR, and the image replaces the stock versions with them.
+
+Before each image build, `scripts/build-patched.sh` runs inside the base image. For
+each patched package it:
+
+1. reads the version the base image ships, e.g. `vte291-0.84.1-1.fc45`;
+2. skips it if the COPR already has `vte291-0.84.1-1.fc45.patched`;
+3. otherwise downloads that exact SRPM from Koji, adds `.patched` to the release and
+   the patch to the spec, checks the patch applies, and submits it to COPR.
+
+The workflow waits for the COPR builds and fails if any of them fail, so the image isn't
+built. In the Containerfile, every installed package that the COPR provides is upgraded
+from the COPR only, and the build fails if a package in `patches/` didn't end up as a
+`.patched` build.
+
+**Patch names:** `patches/<source package>-<upstream version>.patch`, e.g.
+`patches/libinput-1.32.0.patch`. If there's no patch for the exact version, the newest
+patch for an older version is tried. To patch another package, add a file here.
+
+**Setup:** the workflow needs your COPR API token as the `COPR_CONFIG` repository secret
+(Settings → Secrets and variables → Actions). Copy the config shown at
+<https://copr.fedorainfracloud.org/api/> (the same content as `~/.config/copr`). COPR
+tokens expire after 180 days, so renew the secret when they do.
+
+**Testing locally** (dry run: builds the SRPMs and checks the patches apply, but doesn't
+submit anything):
+
+```sh
+podman run --rm -v "$PWD:/src:z" quay.io/fedora/fedora-silverblue:45 \
+  /src/scripts/build-patched.sh -n
+```
+
+To submit from your machine, add `-e COPR_CONFIG="$(cat ~/.config/copr)"` and drop `-n`.
+
 ## Desktop defaults (dconf)
 
 Files in `files/dconf/` are installed to `/etc/dconf/db/local.d/` as system-wide

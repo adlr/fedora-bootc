@@ -1,0 +1,8 @@
+[gnome-patched]
+name=COPR andrewdelosreyes/gnome-patched
+baseurl=https://download.copr.fedorainfracloud.org/results/andrewdelosreyes/gnome-patched/fedora-$releasever-$basearch/
+type=rpm-md
+enabled=1
+gpgcheck=1
+gpgkey=https://download.copr.fedorainfracloud.org/results/andrewdelosreyes/gnome-patched/pubkey.gpg
+repo_gpgcheck=0
