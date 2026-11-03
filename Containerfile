@@ -6,6 +6,16 @@ FROM ${BASE_IMAGE}
 # Google Chrome repository
 COPY files/google-chrome.repo /etc/yum.repos.d/google-chrome.repo
 
+# Claude Code repository (stable channel)
+COPY files/claude-code.repo /etc/yum.repos.d/claude-code.repo
+
+# Terra repository (provides framework-system). Per Terra's docs, the release
+# and key packages are bootstrapped unsigned; later installs are verified.
+RUN dnf install -y --nogpgcheck \
+        --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
+        terra-release terra-gpg-keys && \
+    dnf clean all
+
 # Chrome installs into /opt, which on image-based systems lives under /var
 # and is not part of the image. Install it, then relocate it into /usr and
 # recreate the /opt path at boot with a tmpfiles.d symlink.
@@ -15,7 +25,9 @@ RUN set -eux; \
         git gcc gcc-c++ make cmake autoconf automake libtool pkgconf-pkg-config gdb \
         gtk-v4l gnome-tweaks jetbrains-mono-fonts-all gcolor3 \
         openssh-server \
-        google-chrome-stable; \
+        google-chrome-stable \
+        claude-code \
+        framework-system; \
     if [ -d /var/opt/google ]; then src=/var/opt/google; else src=/opt/google; fi; \
     mv "$src" /usr/lib/google; \
     echo 'L+ /var/opt/google - - - - /usr/lib/google' > /usr/lib/tmpfiles.d/google-chrome.conf; \

@@ -4,7 +4,9 @@ A personal Fedora 45 (GNOME / Silverblue) bootc image, rebuilt daily by GitHub A
 and pushed to `ghcr.io/<owner>/fedora-bootc`.
 
 Includes: git, gcc/g++, make, cmake, autotools, gdb, Google Chrome, gtk-v4l,
-gnome-tweaks, jetbrains-mono-fonts-all, gcolor3. `sshd` is enabled.
+gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, Claude Code (stable channel, from
+Anthropic's dnf repo), framework-system (`framework_tool`, from the
+[Terra](https://terrapkg.com/) repo). `sshd` is enabled.
 
 Tags: `latest`, `45`, `45-YYYYMMDD`.
 
