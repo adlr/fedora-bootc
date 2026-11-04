@@ -27,6 +27,7 @@ RUN set -eux; \
         openssh-server \
         google-chrome-stable \
         claude-code \
+        emacs-nw evtest \
         framework-system; \
     if [ -d /var/opt/google ]; then src=/var/opt/google; else src=/opt/google; fi; \
     mv "$src" /usr/lib/google; \
