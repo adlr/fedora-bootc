@@ -25,9 +25,10 @@ RUN dnf install -y --nogpgcheck \
 # Chrome installs into /opt, which on image-based systems lives under /var
 # and is not part of the image. Install it, then relocate it into /usr and
 # recreate the /opt path at boot with a tmpfiles.d symlink.
+# Xournal++ recommends TeX Live (~215 MB) for its optional LaTeX tool; skip it.
 RUN set -eux; \
     mkdir -p /var/opt; \
-    dnf install -y \
+    dnf install -y --exclude='texlive*' \
         git gcc gcc-c++ make cmake autoconf automake libtool pkgconf-pkg-config gdb \
         gtk-v4l gnome-tweaks jetbrains-mono-fonts-all gcolor3 \
         openssh-server \
