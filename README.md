@@ -4,7 +4,13 @@ A personal Fedora 45 (GNOME / Silverblue) bootc image, rebuilt daily by GitHub A
 and pushed to `ghcr.io/<owner>/fedora-bootc`.
 
 Includes: git, gcc/g++, make, cmake, autotools, gdb, Google Chrome, gtk-v4l,
-gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, Claude Code (stable channel, from
+gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, emacs-nw, evtest, igt-gpu-tools (`intel_gpu_top`), ripgrep, tig, tmux, mosh, glow,
+Xournal++, qpdf, tesseract-osd, drm-utils, lm_sensors, ddcutil, android-tools, copr-cli,
+EasyEffects, dconf-editor, NetBird (from NetBird's repo; service enabled, run
+`netbird up` to log in), gh, ocrmypdf, VLC,
+Audacity, GIMP, Visual Studio Code (from Microsoft's repo), full ffmpeg codecs,
+VLC's extra codec plugins and the full Intel VA-API driver for hardware video decoding
+(from [RPM Fusion](https://rpmfusion.org/); check with `vainfo`), Claude Code (stable channel, from
 Anthropic's dnf repo), framework-system (`framework_tool`, from the
 [Terra](https://terrapkg.com/) repo). `sshd` is enabled.
 
