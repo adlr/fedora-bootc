@@ -4,7 +4,7 @@ A personal Fedora 45 (GNOME / Silverblue) bootc image, rebuilt daily by GitHub A
 and pushed to `ghcr.io/<owner>/fedora-bootc`.
 
 Includes: git, gcc/g++, make, cmake, autotools, gdb, Google Chrome, gtk-v4l,
-gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, emacs-nw, evtest, igt-gpu-tools (`intel_gpu_top`), ripgrep, tig, tmux, mosh, glow,
+gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, emacs-nw, evtest, igt-gpu-tools (`intel_gpu_top`), dbus-daemon, vte291-devel, ripgrep, tig, tmux, mosh, glow,
 Xournal++, qpdf, tesseract-osd, drm-utils, lm_sensors, ddcutil, android-tools, copr-cli,
 EasyEffects, dconf-editor, NetBird (from NetBird's repo; service enabled, run
 `netbird up` to log in), gh, ocrmypdf, VLC,

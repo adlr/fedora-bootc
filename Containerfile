@@ -34,7 +34,7 @@ RUN set -eux; \
         openssh-server \
         google-chrome-stable \
         claude-code \
-        emacs-nw evtest igt-gpu-tools \
+        emacs-nw evtest igt-gpu-tools dbus-daemon vte291-devel \
         gh ocrmypdf vlc audacity gimp \
         code \
         ripgrep tig tmux mosh glow \
