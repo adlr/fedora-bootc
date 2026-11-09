@@ -37,7 +37,7 @@ RUN set -eux; \
         emacs-nw evtest igt-gpu-tools dbus-daemon vte291-devel \
         gh ocrmypdf vlc audacity gimp \
         code \
-        ripgrep tig tmux mosh glow \
+        ripgrep tig tmux mosh glow chezmoi \
         xournalpp qpdf tesseract-osd \
         drm-utils lm_sensors ddcutil android-tools \
         copr-cli easyeffects dconf-editor \
