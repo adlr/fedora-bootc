@@ -107,6 +107,10 @@ RUN set -eux; \
 COPY files/dconf/ /etc/dconf/db/local.d/
 RUN dconf update
 
+# Fingerprint login, unlock and sudo. fprintd is already in the base image,
+# but its PAM module is only used with this authselect feature.
+RUN authselect enable-feature with-fingerprint && authselect apply-changes
+
 # Enable SSH and NetBird by default
 RUN systemctl enable sshd.service netbird.service
 

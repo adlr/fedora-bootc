@@ -12,7 +12,7 @@ Audacity, GIMP, Visual Studio Code (from Microsoft's repo), full ffmpeg codecs,
 VLC's extra codec plugins and the full Intel VA-API driver for hardware video decoding
 (from [RPM Fusion](https://rpmfusion.org/); check with `vainfo`), Claude Code (stable channel, from
 Anthropic's dnf repo), framework-system (`framework_tool`, from the
-[Terra](https://terrapkg.com/) repo). `sshd` is enabled.
+[Terra](https://terrapkg.com/) repo). `sshd` is enabled, and fingerprint authentication is on (enroll in Settings → Users).
 
 Tags: `latest`, `45`, `45-YYYYMMDD`.
 
