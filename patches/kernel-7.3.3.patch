@@ -1,0 +1,55 @@
+From 9b219fb68f98208ba491a7fe22065ba1cac3ca38 Mon Sep 17 00:00:00 2001
+From: Andrew de los Reyes <adlr@rosaiclabs.com>
+Date: Thu, 12 Nov 2026 17:49:58 -0800
+Subject: [RFC PATCH 2/2] drm/i915/display: Re-enable port sync for tiled
+ displays on xe3lpd+
+
+Commit 05cffc074938 ("drm/i915/display: Implement Wa_16024710867")
+disabled transcoder port sync from display version 30 onwards. Port sync
+is the only thing keeping the tiles of a multi-SST tiled monitor in
+vertical lockstep, so without it each tile's pipe starts whenever its own
+enable sequence (including link training) finishes. The tiles then
+free-run with a constant but random phase offset that changes on every
+modeset.
+
+On Panther Lake (display 30.00) with an LG UltraFine 5K (two 2560x2880
+DP tiles over Thunderbolt), the right tile is visibly shifted vertically,
+measured via PIPEDSL as 362 and 826 lines (of 2962) on two boots. With
+port sync allowed again, TRANS_DDI_FUNC_CTL2 on the slave reads 0x12
+(enabled, master = transcoder B), the measured offset is 0 (within the
+~1 line resolution of back-to-back MMIO reads), and it stays locked
+across repeated DPMS off/on cycles and a replug, with no underruns or
+other errors.
+
+RFC: the workaround's rationale (Bspec 69965) isn't public, so it is not
+clear what it protects against or whether a narrower condition is
+possible. As it stands the workaround breaks tiled displays on these
+platforms.
+
+Fixes: 05cffc074938 ("drm/i915/display: Implement Wa_16024710867")
+Cc: Mitul Golani <mitulkumar.ajitkumar.golani@intel.com>
+Cc: Suraj Kandpal <suraj.kandpal@intel.com>
+Assisted-by: Claude Opus 5.5
+---
+ drivers/gpu/drm/i915/display/intel_ddi.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_ddi.c b/drivers/gpu/drm/i915/display/intel_ddi.c
+index 02a53c984..36b0ecb67 100644
+--- a/drivers/gpu/drm/i915/display/intel_ddi.c
++++ b/drivers/gpu/drm/i915/display/intel_ddi.c
+@@ -4591,10 +4591,8 @@ intel_ddi_port_sync_transcoders(const struct intel_crtc_state *ref_crtc_state,
+ 	/*
+ 	 * We don't enable port sync on BDW due to missing w/as and
+ 	 * due to not having adjusted the modeset sequence appropriately.
+-	 * From, xe3lpd onwards we have defeatured this with reference to
+-	 * Wa_16024710867
+ 	 */
+-	if (!IS_DISPLAY_VER(display, 9, 20))
++	if (DISPLAY_VER(display) < 9)
+ 		return 0;
+ 
+ 	if (!intel_crtc_has_type(ref_crtc_state, INTEL_OUTPUT_DP))
+-- 
+2.56.1
+

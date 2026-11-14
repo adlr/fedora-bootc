@@ -86,6 +86,10 @@ RUN set -eux; \
 # Patched packages from COPR (built by scripts/build-patched.sh). Upgrade only
 # installed packages that the COPR provides, taking new versions from it alone,
 # then make sure everything in patches/ ended up patched.
+# The kernel needs no special handling: dnf replaces it rather than installing
+# it alongside, and rpm-ostree's kernel-install hook (layout=ostree) runs
+# depmod and dracut into /usr/lib/modules/<kver>/initramfs.img. Check that
+# there's exactly one kernel and that it got an initramfs.
 COPY files/gnome-patched.repo /etc/yum.repos.d/gnome-patched.repo
 COPY patches/ /tmp/patches/
 RUN set -eux; \
@@ -99,6 +103,9 @@ RUN set -eux; \
             | grep -q '\.patched\.src\.rpm$' \
             || { echo "$pkg is not a .patched build" >&2; exit 1; }; \
     done; \
+    kver="$(ls /usr/lib/modules)"; \
+    [ "$(wc -l <<<"$kver")" = 1 ] || { echo "multiple kernels: $kver" >&2; exit 1; }; \
+    test -s "/usr/lib/modules/$kver/initramfs.img"; \
     rm -rf /tmp/patches /tmp/copr-pkgs; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf

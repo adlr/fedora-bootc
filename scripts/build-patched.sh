@@ -107,9 +107,22 @@ for pkg in "${!NVR[@]}"; do
   mkdir -p "$dir/src" "$dir/out" "$dir/build"
   (cd "$dir" && koji download-build -q --arch=src "$nvr")
   (cd "$dir/src" && rpm2cpio "../$nvr.src.rpm" | cpio -idm --quiet)
-  cp "$patch" "$dir/src/"
+  if [ "$pkg" = kernel ]; then
+    # kernel.spec applies its patches by hand, not with %autopatch, so an
+    # added Patch tag would be ignored. It always applies the (normally
+    # empty) linux-kernel-test.patch, which is meant for local patches.
+    # Build only the base kernel (no debug variants, tools or selftests)
+    # and skip debuginfo and the UKI, as `--with baseonly` etc. would.
+    cp "$patch" "$dir/src/linux-kernel-test.patch"
+    sed -i -e "s/^%define specrelease .*/&$SUFFIX/" \
+      -e '1i %define _with_baseonly 1\n%define _without_debuginfo 1\n%define _without_efiuki 1\n%define _without_doc 1' \
+      "$dir/src/$pkg.spec"
+    grep -q "^%define specrelease .*$SUFFIX\$" "$dir/src/$pkg.spec" ||
+      die "could not set the kernel release"
+  else
+    cp "$patch" "$dir/src/"
 
-  python3 - "$dir/src/$pkg.spec" "${release%%.*}" "$SUFFIX" "$(basename "$patch")" <<'EOF'
+    python3 - "$dir/src/$pkg.spec" "${release%%.*}" "$SUFFIX" "$(basename "$patch")" <<'EOF'
 import sys
 from specfile import Specfile
 path, relnum, suffix, patch = sys.argv[1:]
@@ -122,8 +135,10 @@ with spec.patches() as patches:
     patches.append(patch)
 spec.save()
 EOF
+  fi
 
-  defs=(--define "_topdir $dir" --define "_sourcedir $dir/src"
+  # kernel.spec's %prep looks for itself in %_specdir
+  defs=(--define "_topdir $dir" --define "_sourcedir $dir/src" --define "_specdir $dir/src"
         --define "_srcrpmdir $dir/out" --define "_builddir $dir/build")
   # Check the patch applies now rather than after a long COPR build. %prep
   # can use macros from build dependencies, so install those first.
@@ -151,6 +166,7 @@ fi
 
 [ -f ~/.config/copr ] || die "no COPR API token: set COPR_CONFIG or create ~/.config/copr"
 
-# Waits for all builds; exits non-zero if any fail
+# Waits for all builds; exits non-zero if any fail. A kernel build can take
+# hours, so allow more than the default 5h.
 log "Submitting to COPR $COPR_PROJECT ($CHROOT)"
-copr-cli build -r "$CHROOT" "$COPR_PROJECT" "${SRPMS[@]}"
+copr-cli build --timeout 36000 -r "$CHROOT" "$COPR_PROJECT" "${SRPMS[@]}"

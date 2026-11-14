@@ -119,6 +119,15 @@ from the COPR only, and the build fails if a package in `patches/` didn't end up
 `patches/libinput-1.32.0.patch`. If there's no patch for the exact version, the newest
 patch for an older version is tried. To patch another package, add a file here.
 
+**The kernel** (`patches/kernel-<version>.patch`) is handled a little differently:
+kernel.spec doesn't apply extra `Patch` tags, so the patch replaces the spec's
+(normally empty) `linux-kernel-test.patch`, and only the base kernel is built (no debug
+variants, debuginfo, tools or UKI). The build still takes hours in COPR, and it reruns
+every time Fedora updates the kernel. The image gets e.g. `7.3.3-300.fc45.patched`, and
+its initramfs is regenerated during the image build. COPR kernels aren't signed with
+Fedora's Secure Boot key, so the target machine needs Secure Boot disabled (or the kernel
+signed with your own enrolled MOK key).
+
 **Setup:** the workflow needs your COPR API token as the `COPR_CONFIG` repository secret
 (Settings → Secrets and variables → Actions). Copy the config shown at
 <https://copr.fedorainfracloud.org/api/> (the same content as `~/.config/copr`). COPR

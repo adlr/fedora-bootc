@@ -22,7 +22,7 @@ env:
 jobs:
   patched-packages:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 360 # the GitHub-hosted maximum; kernel builds are slow
     steps:
       - uses: actions/checkout@v7
 
