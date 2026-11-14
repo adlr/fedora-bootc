@@ -10,6 +10,7 @@ on:
       - files/**
       - patches/**
       - scripts/**
+      - extensions.txt
       - .github/workflows/build.yml
   pull_request:
   workflow_dispatch:
@@ -39,8 +40,26 @@ jobs:
           podman run --rm --pull=newer -v "$PWD:/src:z" -e COPR_CONFIG \
             "$BASE_IMAGE" /src/scripts/build-patched.sh "${args[@]}"
 
+  extensions:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # Packages the latest vN tag of each extension in extensions.txt. Runs
+      # inside the base image for its gnome-extensions tool.
+      - name: Build GNOME Shell extensions in COPR
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          args=()
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            args+=(-n)
+          fi
+          podman run --rm --pull=newer -v "$PWD:/src:z" -e COPR_CONFIG \
+            "$BASE_IMAGE" /src/scripts/build-extensions.sh "${args[@]}"
+
   build:
-    needs: patched-packages
+    needs: [patched-packages, extensions]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

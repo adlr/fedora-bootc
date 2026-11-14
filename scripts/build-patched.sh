@@ -6,6 +6,9 @@
 #   podman run --rm -v "$PWD:/src:z" -e COPR_CONFIG \
 #     quay.io/fedora/fedora-silverblue:45 /src/scripts/build-patched.sh [-n]
 #
+# Packages it doesn't ship use the newest version in the Fedora repos, so the
+# Containerfile must install those before upgrading to the COPR builds.
+#
 # Patches are named patches/<source package>-<upstream version>.patch. If no
 # patch matches the image's version exactly, the newest older one is used.
 #
@@ -37,6 +40,13 @@ image_nvr() {
     sort -u | sed 's/\.src\.rpm$//'
 }
 
+# Newest source package NVR in the Fedora repos, for packages the base image
+# doesn't ship but the Containerfile installs
+repo_nvr() {
+  dnf -q repoquery --refresh --repo=fedora-source --repo=updates-source \
+    --arch=src --latest-limit=1 --qf '%{name}-%{version}-%{release}\n' "$1"
+}
+
 # Newest patches/<pkg>-<version>.patch whose version is <= $2
 pick_patch() {
   local f v
@@ -63,8 +73,9 @@ declare -A NVR
 for f in "$PATCH_DIR"/*.patch; do
   pkg="$(basename "${f%-*}")"
   [ -n "${NVR[$pkg]:-}" ] && continue
-  nvr="$(image_nvr "$pkg")"
-  [ -n "$nvr" ] || die "$pkg is not installed in the base image"
+  nvr="$(image_nvr "$pkg")" || true
+  [ -n "$nvr" ] || nvr="$(repo_nvr "$pkg")"
+  [ -n "$nvr" ] || die "$pkg is neither in the base image nor in the Fedora repos"
   [ "$(wc -l <<<"$nvr")" = 1 ] || die "multiple versions of $pkg in image: $nvr"
   NVR[$pkg]="$nvr"
 done

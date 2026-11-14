@@ -1,0 +1,44 @@
+From f5d37bf0bfbd5cda18b227dcb342accc23874e75 Mon Sep 17 00:00:00 2001
+From: Andrew de los Reyes <adlr@rivosinc.com>
+Date: Wed, 12 Mar 2025 16:41:19 -0700
+Subject: [PATCH] Format date nicely on vertical clock
+
+---
+ src/panel.js | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/src/panel.js b/src/panel.js
+index 93e9dd6..8f9b0ef 100644
+--- a/src/panel.js
++++ b/src/panel.js
+@@ -1392,12 +1392,17 @@ export const Panel = GObject.registerClass(
+         let datetimeParts = datetime.split(' ')
+         let time = datetimeParts[1]
+         let clockText = this.statusArea.dateMenu._clockDisplay.clutter_text
+-        let setClockText = (text, useTimeSeparator) => {
++        let setClockText = (text, useTimeSeparator, dateNumber) => {
+           let stacks = text instanceof Array
+           let separator = `\n<span size="8192"> ${useTimeSeparator ? '‧‧' : '—'} </span>\n`
+ 
+           clockText.set_text((stacks ? text.join(separator) : text).trim())
+           clockText.set_use_markup(stacks)
++          if (dateNumber) {
++            const use_clocktext = `<u>${dateNumber}</u>\n<span size="4pt">\n</span>${text.join('\n')}`;
++            clockText.set_text(use_clocktext);
++            clockText.set_use_markup(true);
++          }
+           clockText.get_allocation_box()
+ 
+           return !clockText.get_layout().is_ellipsized()
+@@ -1433,7 +1438,7 @@ export const Panel = GObject.registerClass(
+             timeParts.push.apply(timeParts, timeParts.pop().split(' '))
+           }
+ 
+-          setClockText(timeParts, true)
++          setClockText(timeParts, true, datetimeParts[0].split(' ')[1])
+         }
+       }
+     }
+-- 
+2.56.1
+

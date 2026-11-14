@@ -4,7 +4,7 @@ A personal Fedora 45 (GNOME / Silverblue) bootc image, rebuilt daily by GitHub A
 and pushed to `ghcr.io/<owner>/fedora-bootc`.
 
 Includes: git, gcc/g++, make, cmake, autotools, gdb, Google Chrome, gtk-v4l,
-gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, emacs-nw, evtest, igt-gpu-tools (`intel_gpu_top`), dbus-daemon, vte291-devel, ripgrep, tig, tmux, mosh, glow, chezmoi,
+gnome-tweaks, jetbrains-mono-fonts-all, gcolor3, emacs-nw, evtest, igt-gpu-tools (`intel_gpu_top`), dbus-daemon, vte291-devel, ripgrep, tig, tmux, mosh, glow, chezmoi, Dash to Panel (patched),
 Xournal++, qpdf, tesseract-osd, drm-utils, lm_sensors, ddcutil, android-tools, copr-cli,
 EasyEffects, dconf-editor, NetBird (from NetBird's repo; service enabled, run
 `netbird up` to log in), gh, ocrmypdf, VLC,
@@ -105,7 +105,8 @@ COPR, and the image replaces the stock versions with them.
 Before each image build, `scripts/build-patched.sh` runs inside the base image. For
 each patched package it:
 
-1. reads the version the base image ships, e.g. `vte291-0.84.1-1.fc45`;
+1. reads the version the base image ships, e.g. `vte291-0.84.1-1.fc45` (or, for a
+   package the base image doesn't ship, the newest version in the Fedora repos);
 2. skips it if the COPR already has `vte291-0.84.1-1.fc45.patched`;
 3. otherwise downloads that exact SRPM from Koji, adds `.patched` to the release and
    the patch to the spec, checks the patch applies, and submits it to COPR.
@@ -118,6 +119,9 @@ from the COPR only, and the build fails if a package in `patches/` didn't end up
 **Patch names:** `patches/<source package>-<upstream version>.patch`, e.g.
 `patches/libinput-1.32.0.patch`. If there's no patch for the exact version, the newest
 patch for an older version is tried. To patch another package, add a file here.
+If the package isn't in the base image, also add it to the Containerfile's main
+`dnf install` list so that it's installed before being upgraded to the patched build
+(as with `gnome-shell-extension-dash-to-panel`).
 
 **The kernel** (`patches/kernel-<version>.patch`) is handled a little differently:
 kernel.spec doesn't apply extra `Patch` tags, so the patch replaces the spec's
@@ -142,6 +146,29 @@ podman run --rm -v "$PWD:/src:z" quay.io/fedora/fedora-silverblue:45 \
 ```
 
 To submit from your machine, add `-e COPR_CONFIG="$(cat ~/.config/copr)"` and drop `-n`.
+
+## GNOME Shell extensions (COPR)
+
+The extensions in `extensions.txt` are packaged in the same COPR and installed
+system-wide, into `/usr/share/gnome-shell/extensions/<uuid>`. Enable them per user
+with the Extensions app or `gnome-extensions enable <uuid>`.
+
+Before each image build, `scripts/build-extensions.sh` runs inside the base image. For
+each extension it finds the repository's highest `vN` tag and, unless the COPR already
+has that version (e.g. `gnome-shell-extension-stablestruts-1`), clones the tag, runs
+its build command, and submits a noarch SRPM whose source is the resulting zip. The
+package version is `N`.
+
+To add an extension, add a line to `extensions.txt`: package name, license, repository,
+the zip's path in the repository, and the build command. To rebuild an existing version
+(e.g. after changing the spec the script generates), delete that build in COPR.
+
+Dry run (builds the zips and SRPMs without submitting):
+
+```sh
+podman run --rm -v "$PWD:/src:z" quay.io/fedora/fedora-silverblue:45 \
+  /src/scripts/build-extensions.sh -n
+```
 
 ## Desktop defaults (dconf)
 

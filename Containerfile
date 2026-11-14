@@ -38,6 +38,7 @@ RUN set -eux; \
         gh ocrmypdf vlc audacity gimp \
         code \
         ripgrep tig tmux mosh glow chezmoi \
+        gnome-shell-extension-dash-to-panel \
         xournalpp qpdf tesseract-osd \
         drm-utils lm_sensors ddcutil android-tools \
         copr-cli easyeffects dconf-editor \
@@ -86,6 +87,8 @@ RUN set -eux; \
 # Patched packages from COPR (built by scripts/build-patched.sh). Upgrade only
 # installed packages that the COPR provides, taking new versions from it alone,
 # then make sure everything in patches/ ended up patched.
+# Patched packages that aren't in the base image (dash-to-panel) are installed
+# from Fedora above, then upgraded here like the rest.
 # The kernel needs no special handling: dnf replaces it rather than installing
 # it alongside, and rpm-ostree's kernel-install hook (layout=ostree) runs
 # depmod and dracut into /usr/lib/modules/<kver>/initramfs.img. Check that
@@ -107,6 +110,16 @@ RUN set -eux; \
     [ "$(wc -l <<<"$kver")" = 1 ] || { echo "multiple kernels: $kver" >&2; exit 1; }; \
     test -s "/usr/lib/modules/$kver/initramfs.img"; \
     rm -rf /tmp/patches /tmp/copr-pkgs; \
+    dnf clean all; \
+    rm -rf /var/cache/* /var/log/* /var/lib/dnf
+
+# GNOME Shell extensions from the same COPR (built by
+# scripts/build-extensions.sh), installed system-wide.
+COPY extensions.txt /tmp/extensions.txt
+RUN set -eux; \
+    pkgs="$(sed 's/#.*//' /tmp/extensions.txt | awk 'NF { print $1 }')"; \
+    dnf install -y --repo=gnome-patched $pkgs; \
+    rm -f /tmp/extensions.txt; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 

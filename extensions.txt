@@ -1,0 +1,7 @@
+# GNOME Shell extensions packaged in COPR by scripts/build-extensions.sh and
+# installed system-wide by the Containerfile. Each package's version is the
+# repository's latest vN tag.
+#
+# package                                   license            repository                                         zip (relative to the repository)                              build command
+gnome-shell-extension-three-finger-tab-switcher GPL-2.0-only   https://github.com/adlr/three-finger-tab-switcher.git  dist/threefingertabswitching@adlr.info.shell-extension.zip     ./build.sh
+gnome-shell-extension-stablestruts          GPL-2.0-only       https://github.com/adlr/StableStruts.git               stablestruts@adlr.info.shell-extension.zip                     make
