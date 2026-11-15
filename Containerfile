@@ -83,6 +83,17 @@ RUN set -eux; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 
+# neiro (laptop speaker DSP on PipeWire) from the RPM in its latest GitLab
+# release. The RPM isn't signed; it's fetched over HTTPS from the project.
+# GitLab rate-limits its API, hence the retries.
+# Each user imports their tuning and enables it themselves (see README).
+RUN set -eux; \
+    url="$(curl -fsSL --retry 5 https://gitlab.com/api/v4/projects/wolf-yuan%2Fneiro/releases/permalink/latest \
+        | python3 -c 'import json, sys; print(next(l["direct_asset_url"] for l in json.load(sys.stdin)["assets"]["links"] if l["name"].endswith(".x86_64.rpm")))')"; \
+    dnf install -y "$url"; \
+    dnf clean all; \
+    rm -rf /var/cache/* /var/log/* /var/lib/dnf
+
 # Patched packages and GNOME Shell extensions from COPR. COPR_SRPMS lists the
 # exact source builds that scripts/build-patched.sh and
 # scripts/build-extensions.sh made sure exist; without it, the newest builds are
