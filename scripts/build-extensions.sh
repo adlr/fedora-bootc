@@ -14,6 +14,8 @@
 #   -n   dry run: build the zips and SRPMs, but don't submit
 #
 # COPR_CONFIG, if set, is written to ~/.config/copr (the copr-cli API token).
+# SRPM_LIST, if set, is a file that gets the COPR source builds the image
+# should install, one per line, e.g. gnome-shell-extension-stablestruts-1-1.fc45.
 set -euo pipefail
 
 COPR_PROJECT="${COPR_PROJECT:-andrewdelosreyes/gnome-patched}"
@@ -38,11 +40,11 @@ latest_tag() {
     sed -n 's|.*refs/tags/\(v[0-9]\+\)$|\1|p' | sort -V | tail -n1
 }
 
-# Whether the COPR has a build of package $1 at version $2
-copr_has() {
+# The COPR's newest source build of package $1 at version $2, if any
+copr_nvr() {
   dnf -q repoquery --refresh --repofrompath="gnome-patched,$COPR_URL" \
-    --repo=gnome-patched --arch=src --qf '%{version}\n' "$1" |
-    grep -qxF "$2"
+    --repo=gnome-patched --arch=src --qf '%{version} %{name}-%{version}-%{release}\n' "$1" |
+    awk -v v="$2" '$1 == v { print $2 }' | sort -V | tail -n1
 }
 
 log "Installing build tools"
@@ -62,6 +64,7 @@ if [ -n "${COPR_CONFIG:-}" ]; then
 fi
 
 SRPMS=()
+TARGETS=()
 # Read on fd 3 so the commands in the loop can't consume the list
 while read -r -u 3 pkg license url zip cmd; do
   [ -n "$pkg" ] && [ "${pkg:0:1}" != "#" ] || continue
@@ -71,8 +74,10 @@ while read -r -u 3 pkg license url zip cmd; do
   [ -n "$tag" ] || die "no vN tags in $url"
   version="${tag#v}"
 
-  if copr_has "$pkg" "$version"; then
-    log "$pkg-$version already in COPR"
+  nvr="$(copr_nvr "$pkg" "$version")" || true
+  if [ -n "$nvr" ]; then
+    log "$nvr already in COPR"
+    TARGETS+=("$nvr")
     continue
   fi
   log "Building $pkg-$version from $url $tag"
@@ -141,7 +146,13 @@ EOF
   srpm=("$dir/out/$pkg-$version"-*.src.rpm)
   [ -f "${srpm[0]}" ] || die "expected an SRPM for $pkg-$version, got: $(ls "$dir/out")"
   SRPMS+=("${srpm[0]}")
+  nvr="${srpm[0]##*/}"
+  TARGETS+=("${nvr%.src.rpm}")
 done 3<"$LIST"
+
+if [ -n "${SRPM_LIST:-}" ]; then
+  printf '%s\n' "${TARGETS[@]}" >"$SRPM_LIST"
+fi
 
 if [ "${#SRPMS[@]}" = 0 ]; then
   log "All extensions are up to date"

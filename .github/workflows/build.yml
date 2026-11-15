@@ -21,45 +21,72 @@ env:
   BASE_IMAGE: quay.io/fedora/fedora-silverblue:45
 
 jobs:
+  # Pin the base image by digest so every job in the run uses the same one,
+  # even if Fedora publishes a new image mid-run
+  base-image:
+    runs-on: ubuntu-24.04
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+      - name: Resolve base image digest
+        id: resolve
+        run: |
+          digest="$(skopeo inspect --format '{{.Digest}}' "docker://$BASE_IMAGE")"
+          echo "ref=${BASE_IMAGE%:*}@$digest" >> "$GITHUB_OUTPUT"
+
   patched-packages:
+    needs: base-image
     runs-on: ubuntu-24.04
     timeout-minutes: 360 # the GitHub-hosted maximum; kernel builds are slow
+    outputs:
+      srpms: ${{ steps.copr.outputs.srpms }}
     steps:
       - uses: actions/checkout@v7
 
       # Runs inside the base image so it sees the exact package versions it
       # ships. Fails (and stops the image build) if a COPR build fails.
       - name: Build patched packages in COPR
+        id: copr
         env:
           COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+          BASE: ${{ needs.base-image.outputs.ref }}
         run: |
           args=()
           if [ "${{ github.event_name }}" = pull_request ]; then
             args+=(-n)
           fi
-          podman run --rm --pull=newer -v "$PWD:/src:z" -e COPR_CONFIG \
-            "$BASE_IMAGE" /src/scripts/build-patched.sh "${args[@]}"
+          podman run --rm -v "$PWD:/src:z" -v "$RUNNER_TEMP:/out:z" \
+            -e COPR_CONFIG -e SRPM_LIST=/out/srpms \
+            "$BASE" /src/scripts/build-patched.sh "${args[@]}"
+          echo "srpms=$(paste -sd ' ' "$RUNNER_TEMP/srpms")" >> "$GITHUB_OUTPUT"
 
   extensions:
+    needs: base-image
     runs-on: ubuntu-24.04
+    outputs:
+      srpms: ${{ steps.copr.outputs.srpms }}
     steps:
       - uses: actions/checkout@v7
 
       # Packages the latest vN tag of each extension in extensions.txt. Runs
       # inside the base image for its gnome-extensions tool.
       - name: Build GNOME Shell extensions in COPR
+        id: copr
         env:
           COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+          BASE: ${{ needs.base-image.outputs.ref }}
         run: |
           args=()
           if [ "${{ github.event_name }}" = pull_request ]; then
             args+=(-n)
           fi
-          podman run --rm --pull=newer -v "$PWD:/src:z" -e COPR_CONFIG \
-            "$BASE_IMAGE" /src/scripts/build-extensions.sh "${args[@]}"
+          podman run --rm -v "$PWD:/src:z" -v "$RUNNER_TEMP:/out:z" \
+            -e COPR_CONFIG -e SRPM_LIST=/out/srpms \
+            "$BASE" /src/scripts/build-extensions.sh "${args[@]}"
+          echo "srpms=$(paste -sd ' ' "$RUNNER_TEMP/srpms")" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: [patched-packages, extensions]
+    needs: [base-image, patched-packages, extensions]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -81,12 +108,20 @@ jobs:
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "tags=${IMAGE}:latest ${IMAGE}:${FEDORA_VERSION} ${IMAGE}:${FEDORA_VERSION}-${DATE}" >> "$GITHUB_OUTPUT"
 
+      # Use the same base image and the exact COPR builds the jobs above
+      # made sure exist
       - name: Build image
+        env:
+          BASE: ${{ needs.base-image.outputs.ref }}
+          COPR_SRPMS: ${{ needs.patched-packages.outputs.srpms }} ${{ needs.extensions.outputs.srpms }}
         run: |
           tag_args=()
           for t in ${{ steps.meta.outputs.tags }}; do tag_args+=(--tag "$t"); done
-          podman build --pull=newer \
-            --build-arg BASE_IMAGE="$BASE_IMAGE" \
+          podman build \
+            --build-arg BASE_IMAGE="$BASE" \
+            --build-arg COPR_SRPMS="$COPR_SRPMS" \
+            --label org.opencontainers.image.base.name="$BASE_IMAGE" \
+            --label org.opencontainers.image.base.digest="${BASE#*@}" \
             --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
             --label containers.bootc=1 \
             "${tag_args[@]}" -f Containerfile .

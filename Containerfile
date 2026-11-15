@@ -38,7 +38,6 @@ RUN set -eux; \
         gh ocrmypdf vlc audacity gimp \
         code \
         ripgrep tig tmux mosh glow chezmoi \
-        gnome-shell-extension-dash-to-panel \
         xournalpp qpdf tesseract-osd \
         drm-utils lm_sensors ddcutil android-tools \
         copr-cli easyeffects dconf-editor \
@@ -84,42 +83,18 @@ RUN set -eux; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 
-# Patched packages from COPR (built by scripts/build-patched.sh). Upgrade only
-# installed packages that the COPR provides, taking new versions from it alone,
-# then make sure everything in patches/ ended up patched.
-# Patched packages that aren't in the base image (dash-to-panel) are installed
-# from Fedora above, then upgraded here like the rest.
-# The kernel needs no special handling: dnf replaces it rather than installing
-# it alongside, and rpm-ostree's kernel-install hook (layout=ostree) runs
-# depmod and dracut into /usr/lib/modules/<kver>/initramfs.img. Check that
-# there's exactly one kernel and that it got an initramfs.
+# Patched packages and GNOME Shell extensions from COPR. COPR_SRPMS lists the
+# exact source builds that scripts/build-patched.sh and
+# scripts/build-extensions.sh made sure exist; without it, the newest builds are
+# used. See scripts/install-copr.sh.
 COPY files/gnome-patched.repo /etc/yum.repos.d/gnome-patched.repo
-COPY patches/ /tmp/patches/
+COPY scripts/install-copr.sh /tmp/copr/scripts/
+COPY patches/ /tmp/copr/patches/
+COPY extensions.txt /tmp/copr/
+ARG COPR_SRPMS=
 RUN set -eux; \
-    dnf -q repoquery --refresh --repo=gnome-patched --arch=noarch,x86_64 \
-        --qf '%{name}\n' | sort -u > /tmp/copr-pkgs; \
-    pkgs="$(rpm -qa --qf '%{name}\n' | sort -u | grep -Fxf /tmp/copr-pkgs)"; \
-    dnf upgrade -y --from-repo=gnome-patched $pkgs; \
-    for f in /tmp/patches/*.patch; do \
-        pkg="$(basename "${f%-*}")"; \
-        rpm -qa --qf '%{SOURCERPM}\n' | grep -E "^$pkg-[^-]+-[^-]+\.src\.rpm$" \
-            | grep -q '\.patched\.src\.rpm$' \
-            || { echo "$pkg is not a .patched build" >&2; exit 1; }; \
-    done; \
-    kver="$(ls /usr/lib/modules)"; \
-    [ "$(wc -l <<<"$kver")" = 1 ] || { echo "multiple kernels: $kver" >&2; exit 1; }; \
-    test -s "/usr/lib/modules/$kver/initramfs.img"; \
-    rm -rf /tmp/patches /tmp/copr-pkgs; \
-    dnf clean all; \
-    rm -rf /var/cache/* /var/log/* /var/lib/dnf
-
-# GNOME Shell extensions from the same COPR (built by
-# scripts/build-extensions.sh), installed system-wide.
-COPY extensions.txt /tmp/extensions.txt
-RUN set -eux; \
-    pkgs="$(sed 's/#.*//' /tmp/extensions.txt | awk 'NF { print $1 }')"; \
-    dnf install -y --repo=gnome-patched $pkgs; \
-    rm -f /tmp/extensions.txt; \
+    /tmp/copr/scripts/install-copr.sh $COPR_SRPMS; \
+    rm -rf /tmp/copr; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 

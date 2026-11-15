@@ -15,6 +15,8 @@
 #   -n   dry run: prepare SRPMs and check the patches apply, but don't submit
 #
 # COPR_CONFIG, if set, is written to ~/.config/copr (the copr-cli API token).
+# SRPM_LIST, if set, is a file that gets the COPR source builds the image
+# should install, one per line, e.g. vte291-0.84.1-1.fc45.patched.
 set -euo pipefail
 
 COPR_PROJECT="${COPR_PROJECT:-andrewdelosreyes/gnome-patched}"
@@ -97,12 +99,14 @@ if [ -n "${COPR_CONFIG:-}" ]; then
 fi
 
 SRPMS=()
+TARGETS=()
 for pkg in "${!NVR[@]}"; do
   nvr="${NVR[$pkg]}"
   rest="${nvr#"$pkg"-}"
   version="${rest%-*}"
   release="${rest#*-}"
   target="$nvr$SUFFIX"
+  TARGETS+=("$target")
 
   if copr_has "$target"; then
     log "$target already in COPR"
@@ -163,6 +167,10 @@ EOF
   [ -f "$srpm" ] || die "expected $srpm, got: $(ls "$dir/out")"
   SRPMS+=("$srpm")
 done
+
+if [ -n "${SRPM_LIST:-}" ]; then
+  printf '%s\n' "${TARGETS[@]}" >"$SRPM_LIST"
+fi
 
 if [ "${#SRPMS[@]}" = 0 ]; then
   log "All patched packages are up to date"

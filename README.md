@@ -112,21 +112,27 @@ each patched package it:
    the patch to the spec, checks the patch applies, and submits it to COPR.
 
 The workflow waits for the COPR builds and fails if any of them fail, so the image isn't
-built. In the Containerfile, every installed package that the COPR provides is upgraded
-from the COPR only, and the build fails if a package in `patches/` didn't end up as a
-`.patched` build.
+built.
+
+**One run, one set of versions:** the workflow first resolves the base image tag to a
+digest, and every job uses that exact image (it's recorded in the image's
+`org.opencontainers.image.base.digest` label). The packaging jobs list the COPR builds
+they made sure exist, and the image build installs exactly those with
+`scripts/install-copr.sh`: installed packages are upgraded to them, and packages the
+base image doesn't ship (dash-to-panel, the extensions) are installed. The build fails
+if any installed package that one of those builds provides comes from anywhere else.
+A local `podman build` without `--build-arg COPR_SRPMS=...` uses the newest COPR builds.
 
 **Patch names:** `patches/<source package>-<upstream version>.patch`, e.g.
 `patches/libinput-1.32.0.patch`. If there's no patch for the exact version, the newest
 patch for an older version is tried. To patch another package, add a file here.
-If the package isn't in the base image, also add it to the Containerfile's main
-`dnf install` list so that it's installed before being upgraded to the patched build
-(as with `gnome-shell-extension-dash-to-panel`).
+If the base image doesn't ship the package, its patched build is installed.
 
 **The kernel** (`patches/kernel-<version>.patch`) is handled a little differently:
 kernel.spec doesn't apply extra `Patch` tags, so the patch replaces the spec's
 (normally empty) `linux-kernel-test.patch`, and only the base kernel is built (no debug
-variants, debuginfo, tools or UKI). The build still takes hours in COPR, and it reruns
+variants, debuginfo, tools or UKI; `kernel-tools` and `python3-perf` stay stock). The
+build still takes hours in COPR, and it reruns
 every time Fedora updates the kernel. The image gets e.g. `7.3.3-300.fc45.patched`, and
 its initramfs is regenerated during the image build. COPR kernels aren't signed with
 Fedora's Secure Boot key, so the target machine needs Secure Boot disabled (or the kernel
