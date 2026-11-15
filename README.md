@@ -197,3 +197,6 @@ absolute paths (without the leading `/`) in a new `files/dconf/` keyfile.
 
 - Chrome lives in `/usr/lib/google`, with `/opt/google` symlinked to it at boot through
   tmpfiles.d, so it's part of the immutable image and updates with each build.
+- Chrome's desktop file launches it with `ACCESSIBILITY_ENABLED=1`, so its AT-SPI
+  accessibility tree is available (three-finger tab switching uses it). Starting
+  `google-chrome` from a terminal doesn't set it.

@@ -49,6 +49,13 @@ RUN set -eux; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 
+# Launch Chrome with accessibility (AT-SPI) enabled from the desktop file.
+RUN set -eux; \
+    f=/usr/share/applications/google-chrome.desktop; \
+    grep -q '^Exec=' "$f"; \
+    sed -i 's|^Exec=|Exec=env ACCESSIBILITY_ENABLED=1 |' "$f"; \
+    if grep '^Exec=' "$f" | grep -v '^Exec=env ACCESSIBILITY_ENABLED=1 '; then exit 1; fi
+
 # NetBird's RPM ships no systemd unit; its %post generates one with
 # `netbird service install`, then fails to enable/start it without a running
 # systemd. So install without scripts and generate the unit ourselves:
