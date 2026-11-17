@@ -1,0 +1,46 @@
+#!/bin/bash
+# systemd-sleep hook: log what woke the system. The kernel only records
+# the IRQ of the last wake, and all ACPI events (lid, power button, EC)
+# share one, so also snapshot wakeup source and ACPI GPE counters before
+# sleep and log the ones that changed while asleep.
+# Read with: journalctl -t log-wake-source
+state=/run/log-wake-source.state
+
+counters() {
+    local w f count _
+    for w in /sys/class/wakeup/wakeup*; do
+        printf '%s %s\t%s\n' "$(<"$w/name")" "${w##*/}" "$(<"$w/event_count")"
+    done
+    for f in /sys/firmware/acpi/interrupts/gpe[0-9A-F]* \
+             /sys/firmware/acpi/interrupts/ff_*; do
+        [ -e "$f" ] || continue
+        read -r count _ < "$f"
+        printf 'acpi %s\t%s\n' "${f##*/}" "$count"
+    done
+}
+
+case "$1" in
+pre)
+    counters > "$state"
+    ;;
+post)
+    irq="$(cat /sys/power/pm_wakeup_irq 2>/dev/null)"
+    if [ -n "$irq" ]; then
+        # Skip the IRQ number, per-CPU counts, chip and hwirq columns.
+        irq_name="$(awk -v irq="$irq:" \
+            'NR == 1 { n = NF; next }
+             $1 == irq { for (i = n + 4; i <= NF; i++) printf "%s%s", $i, (i < NF ? " " : "") }' \
+            /proc/interrupts)"
+        irq="IRQ $irq ($irq_name)"
+    else
+        irq="no wakeup IRQ recorded"
+    fi
+    changed="$(counters | awk -F'\t' '
+        NR == FNR { before[$1] = $2; next }
+        $2 != before[$1] { printf "%s%s +%d", sep, $1, $2 - before[$1]; sep = ", " }
+    ' "$state" - 2>/dev/null)"
+    echo "Woke from $2: $irq; changed while asleep: ${changed:-none}" |
+        systemd-cat -t log-wake-source
+    rm -f "$state"
+    ;;
+esac

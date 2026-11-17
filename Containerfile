@@ -126,6 +126,9 @@ RUN authselect enable-feature with-fingerprint && authselect apply-changes
 COPY files/fprintd-stop-before-sleep.conf \
     /usr/lib/systemd/system/fprintd.service.d/50-stop-before-sleep.conf
 
+# Log what woke the system from sleep (journalctl -t log-wake-source)
+COPY --chmod=0755 files/log-wake-source /usr/lib/systemd/system-sleep/log-wake-source
+
 # Enable SSH and NetBird by default
 RUN systemctl enable sshd.service netbird.service
 
