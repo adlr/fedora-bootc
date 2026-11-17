@@ -123,6 +123,8 @@ RUN dconf update
 # Fingerprint login, unlock and sudo. fprintd is already in the base image,
 # but its PAM module is only used with this authselect feature.
 RUN authselect enable-feature with-fingerprint && authselect apply-changes
+COPY files/fprintd-stop-before-sleep.conf \
+    /usr/lib/systemd/system/fprintd.service.d/50-stop-before-sleep.conf
 
 # Enable SSH and NetBird by default
 RUN systemctl enable sshd.service netbird.service
