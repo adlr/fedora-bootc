@@ -1,0 +1,18 @@
+# The Framework 13's touchpad sometimes wakes the system with the lid
+# closed, and it then goes back to sleep in the middle of the lock
+# screen's fingerprint scan. If the lid is closed at sleep, stop the
+# touchpad from waking the system; allow it again after resume.
+[Unit]
+Description=Block touchpad wakeup while the lid is closed
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=WAKEUP=/sys/bus/i2c/devices/i2c-PIXA3854:00/power/wakeup
+ExecStart=/bin/sh -c 'if [ -w "$$WAKEUP" ] && grep -q closed /proc/acpi/button/lid/*/state; then echo disabled > "$$WAKEUP" && echo "Lid closed: touchpad wakeup disabled"; fi'
+ExecStop=/bin/sh -c 'if [ -w "$$WAKEUP" ]; then echo enabled > "$$WAKEUP" && echo "Touchpad wakeup enabled"; fi'
+
+[Install]
+WantedBy=sleep.target

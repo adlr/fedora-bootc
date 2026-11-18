@@ -129,6 +129,10 @@ COPY files/fprintd-stop-before-sleep.conf \
 # Log what woke the system from sleep (journalctl -t log-wake-source)
 COPY --chmod=0755 files/log-wake-source /usr/lib/systemd/system-sleep/log-wake-source
 
+# Keep the touchpad from waking the system while the lid is closed
+COPY files/touchpad-wake-lid.service /usr/lib/systemd/system/touchpad-wake-lid.service
+RUN systemctl enable touchpad-wake-lid.service
+
 # Enable SSH and NetBird by default
 RUN systemctl enable sshd.service netbird.service
 
