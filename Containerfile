@@ -101,6 +101,26 @@ RUN set -eux; \
     dnf clean all; \
     rm -rf /var/cache/* /var/log/* /var/lib/dnf
 
+# opencode CLI. It ships as a standalone binary (no dnf repo), so install the
+# latest glibc x86_64 build into /usr/bin. `opencode upgrade` can't work on a
+# read-only /usr; the image updates it with each build instead.
+# opencode wants a writable HOME and TMPDIR for its data, log and scratch
+# directories, so point both at one throwaway directory that's removed after the
+# shell completions are generated: /tmp has to stay empty in the image.
+RUN set -eux; \
+    export HOME=/var/tmp/opencode-build TMPDIR=/var/tmp/opencode-build; \
+    mkdir -p "$HOME"; \
+    curl -fsSL --retry 5 -o "$HOME/opencode.tar.gz" \
+        https://opencode.ai/update/api/latest/cli/opencode/opencode-linux-x64.tar.gz; \
+    tar -xzf "$HOME/opencode.tar.gz" -C /usr/bin opencode; \
+    chmod 0755 /usr/bin/opencode; \
+    opencode --version; \
+    opencode --completions bash \
+        > /usr/share/bash-completion/completions/opencode; \
+    opencode --completions fish \
+        > /usr/share/fish/vendor_completions.d/opencode.fish; \
+    rm -rf "$HOME"
+
 # Patched packages and GNOME Shell extensions from COPR. COPR_SRPMS lists the
 # exact source builds that scripts/build-patched.sh and
 # scripts/build-extensions.sh made sure exist; without it, the newest builds are

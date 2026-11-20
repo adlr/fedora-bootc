@@ -11,7 +11,7 @@ EasyEffects, dconf-editor, NetBird (from NetBird's repo; service enabled, run
 Audacity, GIMP, Visual Studio Code (from Microsoft's repo), full ffmpeg codecs,
 VLC's extra codec plugins and the full Intel VA-API driver for hardware video decoding
 (from [RPM Fusion](https://rpmfusion.org/); check with `vainfo`), Claude Code (stable channel, from
-Anthropic's dnf repo), framework-system (`framework_tool`, from the
+Anthropic's dnf repo), [opencode](https://opencode.ai/) (latest CLI build, in `/usr/bin`), framework-system (`framework_tool`, from the
 [Terra](https://terrapkg.com/) repo), [neiro](https://gitlab.com/wolf-yuan/neiro) (latest
 release's RPM; to use it, run `neiro import <Windows partition or driver>`, then
 `systemctl --user enable --now neiro.service`). `sshd` is enabled, and fingerprint authentication is on (enroll in Settings → Users).
@@ -200,3 +200,6 @@ absolute paths (without the leading `/`) in a new `files/dconf/` keyfile.
 - Chrome's desktop file launches it with `ACCESSIBILITY_ENABLED=1`, so its AT-SPI
   accessibility tree is available (three-finger tab switching uses it). Starting
   `google-chrome` from a terminal doesn't set it.
+- opencode is the standalone binary in `/usr/bin`, so `opencode upgrade` can't replace
+  it (`/usr` is read-only); each image build picks up the latest release. Run
+  `opencode auth login` per user to sign in.
